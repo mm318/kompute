@@ -6,12 +6,10 @@
 
     .dependencies = .{
         .fmt = .{
-            .url = "https://github.com/allyourcodebase/fmt/archive/c7811afe534568ab68df46c3c371071758d62b40.tar.gz",
-            .hash = "fmt-0.1.0-oeD-JhAoAAA-eEAyICsb4C2WYWFnmgquQjoJ9KMOBYn2",
+            .path = "external/fmt",
         },
         .googletest = .{
-            .url = "https://github.com/allyourcodebase/googletest/archive/4c5cf0207c4db459d7c950c629398244e13b44b2.tar.gz",
-            .hash = "googletest-1.15.2-AAAAAEIKAADmoKMnPn31hgOYPU_gO3GGHk1MYMRvGL5k",
+            .path = "external/googletest",
         },
     },
 
@@ -28,6 +26,7 @@
         "src",
         "test",
         "benchmark",
+        "deps",
         "build.zig",
         "build.zig.zon",
     },
