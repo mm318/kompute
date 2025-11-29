@@ -98,7 +98,8 @@ pub fn build(b: *std.Build) void {
         .root_module = logger_module,
         .linkage = .static,
     });
-    kp_logger.installHeadersDirectory(fmt_artifact.getEmittedIncludeTree(), "", .{});
+    kp_logger.installHeadersDirectory(fmt_artifact.getEmittedIncludeTree(), "", .{ .include_extensions = null });
+    b.installArtifact(kp_logger);
 
     const kompute_module = makeCxxModule(
         b,
@@ -131,21 +132,12 @@ pub fn build(b: *std.Build) void {
         .root_module = kompute_module,
         .linkage = .static,
     });
-
-    b.installArtifact(kp_logger);
+    kompute.installHeadersDirectory(kp_logger.getEmittedIncludeTree(), "", .{ .include_extensions = null });
+    kompute.installHeadersDirectory(b.path("src/include"), "", .{ .include_extensions = null });
+    kompute.installHeadersDirectory(b.path("src/shaders/glsl"), "", .{ .include_extensions = &.{".hpp"} });
     b.installArtifact(kompute);
-    const install_headers = b.addInstallDirectory(.{
-        .source_dir = b.path("src/include"),
-        .install_dir = .header,
-        .install_subdir = "",
-    });
-    const install_shaders = b.addInstallDirectory(.{
-        .source_dir = b.path("src/shaders/glsl"),
-        .install_dir = .header,
-        .install_subdir = "",
-    });
-    b.getInstallStep().dependOn(&install_headers.step);
-    b.getInstallStep().dependOn(&install_shaders.step);
+
+    add_tests(b, target, optimize, kompute, log_level);
 
     if (enable_tests or enable_benchmark) {
         // const gtest_paths = buildGTest(b, target, optimize, cpp_flags) catch {
@@ -263,7 +255,7 @@ pub fn build(b: *std.Build) void {
     }
 }
 
-fn build_tests(
+fn add_tests(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -329,13 +321,14 @@ fn build_tests(
         cpp_flags,
     );
     tests_module.addIncludePath(b.path("test"));
-    tests_module.addIncludePath(b.path("src/include"));
+    tests_module.addIncludePath(kompute.getEmittedIncludeTree());
     tests_module.linkLibrary(kompute);
     tests_module.linkLibrary(gtest_main);
     const kompute_tests = b.addExecutable(.{
         .name = "kompute_tests",
         .root_module = tests_module,
     });
+    kompute_tests.step.dependOn(b.getInstallStep());
 
     const run_tests = b.addRunArtifact(kompute_tests);
     b.step("test", "Run kompute_tests").dependOn(&run_tests.step);
