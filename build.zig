@@ -98,7 +98,7 @@ pub fn build(b: *std.Build) void {
         .root_module = logger_module,
         .linkage = .static,
     });
-    kp_logger.installHeadersDirectory(fmt_artifact.getEmittedIncludeTree(), "", .{ .include_extensions = null });
+    kp_logger.installLibraryHeaders(fmt_artifact);
     b.installArtifact(kp_logger);
 
     const kompute_module = makeCxxModule(
@@ -123,7 +123,8 @@ pub fn build(b: *std.Build) void {
         cpp_flags,
     );
     kompute_module.addIncludePath(b.path("src/include"));
-    kompute_module.addIncludePath(b.path("src/shaders/glsl"));
+    const op_mult_header = shaderHeader(b, "src/shaders/glsl/ShaderOpMult.comp", kompute_module);
+    const logistic_reg_header = shaderHeader(b, "src/shaders/glsl/ShaderLogisticRegression.comp", kompute_module);
     kompute_module.linkLibrary(kp_logger);
     kompute_module.linkSystemLibrary("vulkan", .{});
     kompute_module.linkSystemLibrary("pthread", .{});
@@ -132,9 +133,10 @@ pub fn build(b: *std.Build) void {
         .root_module = kompute_module,
         .linkage = .static,
     });
-    kompute.installHeadersDirectory(kp_logger.getEmittedIncludeTree(), "", .{ .include_extensions = null });
+    kompute.installLibraryHeaders(kp_logger);
     kompute.installHeadersDirectory(b.path("src/include"), "", .{ .include_extensions = null });
-    kompute.installHeadersDirectory(b.path("src/shaders/glsl"), "", .{ .include_extensions = &.{".hpp"} });
+    kompute.installHeader(op_mult_header, op_mult_header.basename(b, null));
+    kompute.installHeader(logistic_reg_header, logistic_reg_header.basename(b, null));
     b.installArtifact(kompute);
 
     add_tests(b, target, optimize, kompute, log_level);
@@ -336,26 +338,93 @@ fn add_tests(
 
 fn shaderHeader(
     b: *std.Build,
-    glslang: []const u8,
-    cmake: []const u8,
-    source: []const u8,
-    out_basename: []const u8,
-    is_big_endian: bool,
+    src_path: []const u8,
+    mod: *std.Build.Module,
 ) std.Build.LazyPath {
-    const compile = b.addSystemCommand(&.{glslang});
-    compile.addArg("-V");
-    compile.addFileArg(b.path(source));
-    compile.addArg("-o");
-    const stem = std.fs.path.stem(source);
-    const spv = compile.addOutputFileArg(b.fmt("{s}.spv", .{stem}));
+    const source_filestem = std.fs.path.stem(src_path);
+    const source_fileext = std.fs.path.extension(src_path);
 
-    const header = b.addSystemCommand(&.{cmake});
-    header.step.dependOn(&compile.step);
-    header.addPrefixedFileArg("-DINPUT_SHADER_FILE=", spv);
-    const header_path = header.addPrefixedOutputFileArg("-DOUTPUT_HEADER_FILE=", out_basename);
-    header.addArg("-DHEADER_NAMESPACE=kp");
-    header.addArg(if (is_big_endian) "-DIS_BIG_ENDIAN=1" else "-DIS_BIG_ENDIAN=0");
-    header.addArg("-P");
-    header.addFileArg(b.path("cmake/bin_file_to_header.cmake"));
-    return header_path;
+    const stage = blk: {
+        if (std.ascii.eqlIgnoreCase(source_fileext, ".vert")) {
+            break :blk "vertex";
+        } else if (std.ascii.eqlIgnoreCase(source_fileext, ".frag")) {
+            break :blk "fragment";
+        } else {
+            break :blk "compute";
+        }
+    };
+    const spv_filename = b.fmt("{s}.spv", .{source_filestem});
+
+    const generated = b.addWriteFiles();
+
+    const compile = b.addSystemCommand(&.{ "slangc", "-target", "spirv", "-entry", "main", "-stage", stage, "-O3" });
+    compile.addFileArg(b.path(src_path));
+    compile.addArg("-o");
+    const spv_file = compile.addOutputFileArg(spv_filename);
+    _ = generated.addCopyFile(spv_file, spv_filename);
+
+    const symbol = shaderSymbolName(b, source_filestem, source_fileext);
+    const zig_source = b.fmt(
+        \\const spv_data = @embedFile("{s}");
+        \\
+        \\pub export const {s}_DATA: [*]const u8 = spv_data.ptr;
+        \\pub export const {s}_SIZE: usize = spv_data.len;
+        \\
+    ,
+        .{ spv_filename, symbol, symbol },
+    );
+    const spv_objsrc = generated.add(b.fmt("{s}_data.zig", .{source_filestem}), zig_source);
+
+    const c_source = b.fmt(
+        \\#ifndef _{s}_H_
+        \\#define _{s}_H_
+        \\
+        \\#include <stdint.h>
+        \\
+        \\extern const uint8_t* {s}_DATA;
+        \\extern const uint32_t {s}_SIZE;
+        \\
+        \\#endif
+        \\
+    ,
+        .{ symbol, symbol, symbol, symbol },
+    );
+    const spv_header = generated.add(b.fmt("{s}.h", .{source_filestem}), c_source);
+
+    const obj = b.addObject(.{
+        .name = b.fmt("{s}", .{source_filestem}),
+        .root_module = b.createModule(.{
+            .root_source_file = spv_objsrc,
+            .target = mod.resolved_target,
+            .optimize = mod.optimize,
+        }),
+    });
+
+    mod.addObject(obj);
+
+    return spv_header;
+}
+
+fn shaderSymbolName(b: *std.Build, stem: []const u8, ext: []const u8) []const u8 {
+    std.debug.assert(stem.len > 0);
+
+    var builder = std.ArrayList(u8).initCapacity(b.allocator, 64) catch @panic("OOM");
+
+    appendUpperIdent(b.allocator, &builder, stem);
+    if (ext.len > 0) {
+        std.debug.assert(ext[0] == '.');
+        appendUpperIdent(b.allocator, &builder, ext);
+    }
+    builder.appendSlice(b.allocator, "_SPV") catch @panic("OOM");
+
+    const raw = builder.toOwnedSlice(b.allocator) catch @panic("OOM");
+
+    return raw;
+}
+
+fn appendUpperIdent(gpa: std.mem.Allocator, str: *std.ArrayList(u8), text: []const u8) void {
+    for (text) |c| {
+        const upper = std.ascii.toUpper(c);
+        str.append(gpa, if (std.ascii.isAlphanumeric(upper)) upper else '_') catch @panic("OOM");
+    }
 }
