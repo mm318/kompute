@@ -10,12 +10,30 @@
 
 TEST(TestAsyncOperations, TestManagerParallelExecution)
 {
-    // This test is built for NVIDIA 1650. It assumes:
-    // * Queue family 0 and 2 have compute capabilities
-    // * GPU is able to process parallel shader code across different families
+    // This test prefers two compute-capable queue families to exercise parallel
+    // execution across queues; it skips if fewer are available.
     uint32_t size = 10;
 
     uint32_t numParallel = 2;
+
+    kp::Manager mgr;
+
+    auto devices = mgr.listDevices();
+    ASSERT_FALSE(devices.empty()) << "No Vulkan devices available";
+
+    std::vector<vk::QueueFamilyProperties> queueFamilies =
+      devices[0].getQueueFamilyProperties();
+    std::vector<uint32_t> computeQueueFamilyIndices;
+
+    for (uint32_t i = 0; i < queueFamilies.size(); ++i) {
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute) {
+            computeQueueFamilyIndices.push_back(i);
+        }
+    }
+
+    ASSERT_GE(computeQueueFamilyIndices.size(), numParallel)
+      << "Test requires at least " << numParallel
+      << " compute queue families";
 
     std::string shader(R"(
         #version 450
@@ -45,8 +63,6 @@ TEST(TestAsyncOperations, TestManagerParallelExecution)
     std::vector<float> data(size, 0.0);
     std::vector<float> resultSync(size, 100000000);
     std::vector<float> resultAsync(size, 100000000);
-
-    kp::Manager mgr;
 
     std::shared_ptr<kp::Sequence> sq = mgr.sequence();
 
@@ -79,15 +95,19 @@ TEST(TestAsyncOperations, TestManagerParallelExecution)
         EXPECT_EQ(inputsSyncB[i]->vector<float>(), resultSync);
     }
 
-    kp::Manager mgrAsync(0, { 0, 2 });
+    const std::vector<uint32_t> asyncQueueIndices(
+      computeQueueFamilyIndices.begin(),
+      computeQueueFamilyIndices.begin() + numParallel);
+
+    kp::Manager mgrAsync(0, asyncQueueIndices);
 
     std::vector<std::shared_ptr<kp::Memory>> inputsAsyncB;
 
     std::vector<std::shared_ptr<kp::Algorithm>> algosAsync;
 
     for (uint32_t i = 0; i < numParallel; i++) {
-        inputsAsyncB.push_back(mgr.tensor(data));
-        algosAsync.push_back(mgr.algorithm({ inputsAsyncB[i] }, spirv));
+        inputsAsyncB.push_back(mgrAsync.tensor(data));
+        algosAsync.push_back(mgrAsync.algorithm({ inputsAsyncB[i] }, spirv));
     }
 
     std::vector<std::shared_ptr<kp::Sequence>> sqs;
@@ -111,7 +131,7 @@ TEST(TestAsyncOperations, TestManagerParallelExecution)
                            endAsync - startAsync)
                            .count();
 
-    sq->eval<kp::OpSyncLocal>({ inputsAsyncB });
+    mgrAsync.sequence()->eval<kp::OpSyncLocal>(inputsAsyncB);
 
     for (uint32_t i = 0; i < numParallel; i++) {
         EXPECT_EQ((inputsAsyncB[i]->vector<float>()), resultAsync);

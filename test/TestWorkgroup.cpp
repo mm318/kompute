@@ -5,7 +5,7 @@
 #include "kompute/Kompute.hpp"
 #include "kompute/logger/Logger.hpp"
 
-#include "test_workgroup_shader.hpp"
+#include "test_workgroup_shader.h"
 
 TEST(TestWorkgroup, TestSimpleWorkgroup)
 {
@@ -22,9 +22,13 @@ TEST(TestWorkgroup, TestSimpleWorkgroup)
 
             std::vector<std::shared_ptr<kp::Memory>> params = { tensorA,
                                                                 tensorB };
+
+            ASSERT_EQ(TEST_WORKGROUP_SHADER_COMP_SPV_SIZE % sizeof(uint32_t), 0u);
             std::vector<uint32_t> spirv(
-              kp::TEST_WORKGROUP_SHADER_COMP_SPV.begin(),
-              kp::TEST_WORKGROUP_SHADER_COMP_SPV.end());
+              TEST_WORKGROUP_SHADER_COMP_SPV_SIZE / sizeof(uint32_t));
+            std::memcpy(spirv.data(),
+                        TEST_WORKGROUP_SHADER_COMP_SPV_DATA,
+                        TEST_WORKGROUP_SHADER_COMP_SPV_SIZE);
 
             kp::Workgroup workgroup = { 16, 8, 1 };
 

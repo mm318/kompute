@@ -82,8 +82,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const enable_tests = b.option(bool, "enable-tests", "Build the kompute_tests executable") orelse false;
-    const enable_benchmark = b.option(bool, "enable-benchmark", "Build the kompute_benchmark executable") orelse false;
     const log_level_str = b.option([]const u8, "log-level", "Trace|Debug|Info|Warn|Error|Critical|Off|Default") orelse "Default";
     const log_level = LogLevel.parseLogLevel(log_level_str, optimize);
 
@@ -93,6 +91,7 @@ pub fn build(b: *std.Build) void {
     const logger_module = makeCxxModule(b, target, optimize, &.{"src/logger/Logger.cpp"}, log_level, cpp_flags);
     logger_module.addIncludePath(b.path("src/include"));
     logger_module.addIncludePath(fmt_artifact.getEmittedIncludeTree());
+    logger_module.linkLibrary(fmt_artifact);
     const kp_logger = b.addLibrary(.{
         .name = "kp_logger",
         .root_module = logger_module,
@@ -122,9 +121,9 @@ pub fn build(b: *std.Build) void {
         log_level,
         cpp_flags,
     );
-    kompute_module.addIncludePath(b.path("src/include"));
     const op_mult_header = shaderHeader(b, "src/shaders/glsl/ShaderOpMult.comp", kompute_module);
     const logistic_reg_header = shaderHeader(b, "src/shaders/glsl/ShaderLogisticRegression.comp", kompute_module);
+    kompute_module.addIncludePath(b.path("src/include"));
     kompute_module.linkLibrary(kp_logger);
     kompute_module.linkSystemLibrary("vulkan", .{});
     kompute_module.linkSystemLibrary("pthread", .{});
@@ -141,120 +140,39 @@ pub fn build(b: *std.Build) void {
 
     add_tests(b, target, optimize, kompute, log_level);
 
-    if (enable_tests or enable_benchmark) {
-        // const gtest_paths = buildGTest(b, target, optimize, cpp_flags) catch {
-        //     std.log.err("GoogleTest sources not found; install libgtest-dev", .{});
-        //     @panic("missing gtest sources");
-        // };
+    // if (enable_tests or enable_benchmark) {
+    //     if (enable_benchmark) {
+    //         const benchmark_module = makeCxxModule(b, target, optimize);
+    //         benchmark_module.addCSourceFiles(.{
+    //             .files = &.{
+    //                 "benchmark/TestBenchmark.cpp",
+    //                 "benchmark/shaders/Utils.cpp",
+    //             },
+    //             .flags = cpp_flags,
+    //         });
+    //         benchmark_module.addIncludePath(b.path("src/include"));
+    //         benchmark_module.addIncludePath(shader_include_dir);
+    //         benchmark_module.addIncludePath(fmt_include);
+    //         benchmark_module.addIncludePath(b.path("benchmark"));
+    //         benchmark_module.addIncludePath(gtest_paths.include_dir);
+    //         applyKomputeMacros(benchmark_module, log_macro, disable_logging);
+    //         benchmark_module.addCMacro("KOMPUTE_OPT_USE_SPDLOG", "0");
+    //         benchmark_module.addCMacro("FMT_HEADER_ONLY", "1");
+    //         benchmark_module.linkLibrary(kompute);
+    //         benchmark_module.linkLibrary(kp_logger);
+    //         benchmark_module.linkLibrary(gtest_paths.gtest_main);
+    //         benchmark_module.linkSystemLibrary("vulkan", .{});
+    //         benchmark_module.linkSystemLibrary("pthread", .{});
 
-        // if (enable_tests) {
-        //     const test_shader_dir = blk: {
-        //         const generated = b.addWriteFiles();
-        //         const endian_big = builtin.target.cpu.arch.endian() == .big;
-        //         const shaders = [_]struct { src: []const u8, out: []const u8 }{
-        //             .{ .src = "test/shaders/glsl/test_logistic_regression_shader.comp", .out = "test_logistic_regression_shader.hpp" },
-        //             .{ .src = "test/shaders/glsl/test_op_custom_shader.comp", .out = "test_op_custom_shader.hpp" },
-        //             .{ .src = "test/shaders/glsl/test_workgroup_shader.comp", .out = "test_workgroup_shader.hpp" },
-        //             .{ .src = "test/shaders/glsl/test_shader.comp", .out = "test_shader.hpp" },
-        //         };
-        //         for (shaders) |shader| {
-        //             const header = shaderHeader(
-        //                 b,
-        //                 glslang.?,
-        //                 cmake_exe.?,
-        //                 shader.src,
-        //                 shader.out,
-        //                 endian_big,
-        //             );
-        //             _ = generated.addCopyFile(header, shader.out);
-        //         }
-        //         break :blk generated.getDirectory();
-        //     };
+    //         const kompute_benchmark = b.addExecutable(.{
+    //             .name = "kompute_benchmark",
+    //             .root_module = benchmark_module,
+    //         });
 
-        //     const tests_module = makeCxxModule(b, target, optimize);
-        //     tests_module.addCSourceFiles(.{
-        //         .files = &.{
-        //             "test/TestAsyncOperations.cpp",
-        //             "test/TestDestroy.cpp",
-        //             "test/TestImage.cpp",
-        //             "test/TestLogisticRegression.cpp",
-        //             "test/TestManager.cpp",
-        //             "test/TestMultipleAlgoExecutions.cpp",
-        //             "test/TestOpCopyImage.cpp",
-        //             "test/TestOpCopyImageToTensor.cpp",
-        //             "test/TestOpCopyTensor.cpp",
-        //             "test/TestOpCopyTensorToImage.cpp",
-        //             "test/TestOpImageCreate.cpp",
-        //             "test/TestOpShadersFromStringAndFile.cpp",
-        //             "test/TestOpSync.cpp",
-        //             "test/TestOpTensorCreate.cpp",
-        //             "test/TestPushConstant.cpp",
-        //             "test/TestSequence.cpp",
-        //             "test/TestSpecializationConstant.cpp",
-        //             "test/TestTensor.cpp",
-        //             "test/TestWorkgroup.cpp",
-        //             "test/shaders/Utils.cpp",
-        //         },
-        //         .flags = cpp_flags,
-        //     });
-        //     tests_module.addIncludePath(b.path("src/include"));
-        //     tests_module.addIncludePath(shader_include_dir);
-        //     tests_module.addIncludePath(fmt_include);
-        //     tests_module.addIncludePath(b.path("test"));
-        //     tests_module.addIncludePath(test_shader_dir);
-        //     tests_module.addIncludePath(gtest_paths.include_dir);
-        //     applyKomputeMacros(tests_module, log_macro, disable_logging);
-        //     tests_module.addCMacro("KOMPUTE_OPT_USE_SPDLOG", "0");
-        //     tests_module.addCMacro("FMT_HEADER_ONLY", "1");
-        //     tests_module.linkLibrary(kompute);
-        //     tests_module.linkLibrary(kp_logger);
-        //     tests_module.linkLibrary(gtest_paths.gtest_main);
-        //     tests_module.linkSystemLibrary("vulkan", .{});
-        //     tests_module.linkSystemLibrary("pthread", .{});
-
-        //     const kompute_tests = b.addExecutable(.{
-        //         .name = "kompute_tests",
-        //         .root_module = tests_module,
-        //     });
-
-        //     b.installArtifact(kompute_tests);
-        //     b.step("kompute_tests", "Build the kompute_tests executable").dependOn(&kompute_tests.step);
-        //     const run_tests = b.addRunArtifact(kompute_tests);
-        //     b.step("test", "Run kompute_tests").dependOn(&run_tests.step);
-        // }
-
-        // if (enable_benchmark) {
-        //     const benchmark_module = makeCxxModule(b, target, optimize);
-        //     benchmark_module.addCSourceFiles(.{
-        //         .files = &.{
-        //             "benchmark/TestBenchmark.cpp",
-        //             "benchmark/shaders/Utils.cpp",
-        //         },
-        //         .flags = cpp_flags,
-        //     });
-        //     benchmark_module.addIncludePath(b.path("src/include"));
-        //     benchmark_module.addIncludePath(shader_include_dir);
-        //     benchmark_module.addIncludePath(fmt_include);
-        //     benchmark_module.addIncludePath(b.path("benchmark"));
-        //     benchmark_module.addIncludePath(gtest_paths.include_dir);
-        //     applyKomputeMacros(benchmark_module, log_macro, disable_logging);
-        //     benchmark_module.addCMacro("KOMPUTE_OPT_USE_SPDLOG", "0");
-        //     benchmark_module.addCMacro("FMT_HEADER_ONLY", "1");
-        //     benchmark_module.linkLibrary(kompute);
-        //     benchmark_module.linkLibrary(kp_logger);
-        //     benchmark_module.linkLibrary(gtest_paths.gtest_main);
-        //     benchmark_module.linkSystemLibrary("vulkan", .{});
-        //     benchmark_module.linkSystemLibrary("pthread", .{});
-
-        //     const kompute_benchmark = b.addExecutable(.{
-        //         .name = "kompute_benchmark",
-        //         .root_module = benchmark_module,
-        //     });
-
-        //     b.installArtifact(kompute_benchmark);
-        //     b.step("kompute_benchmark", "Build the kompute_benchmark executable").dependOn(&kompute_benchmark.step);
-        // }
-    }
+    //         b.installArtifact(kompute_benchmark);
+    //         b.step("kompute_benchmark", "Build the kompute_benchmark executable").dependOn(&kompute_benchmark.step);
+    //     }
+    // }
 }
 
 fn add_tests(
@@ -269,29 +187,6 @@ fn add_tests(
         .optimize = optimize,
     });
     const gtest_main = googletest_dep.artifact("gtest_main");
-
-    // const test_shader_dir = blk: {
-    //     const generated = b.addWriteFiles();
-    //     const endian_big = builtin.target.cpu.arch.endian() == .big;
-    //     const shaders = [_]struct { src: []const u8, out: []const u8 }{
-    //         .{ .src = "test/shaders/glsl/test_logistic_regression_shader.comp", .out = "test_logistic_regression_shader.hpp" },
-    //         .{ .src = "test/shaders/glsl/test_op_custom_shader.comp", .out = "test_op_custom_shader.hpp" },
-    //         .{ .src = "test/shaders/glsl/test_workgroup_shader.comp", .out = "test_workgroup_shader.hpp" },
-    //         .{ .src = "test/shaders/glsl/test_shader.comp", .out = "test_shader.hpp" },
-    //     };
-    //     for (shaders) |shader| {
-    //         const header = shaderHeader(
-    //             b,
-    //             glslang.?,
-    //             cmake_exe.?,
-    //             shader.src,
-    //             shader.out,
-    //             endian_big,
-    //         );
-    //         _ = generated.addCopyFile(header, shader.out);
-    //     }
-    //     break :blk generated.getDirectory();
-    // };
 
     const tests_module = makeCxxModule(
         b,
@@ -322,8 +217,15 @@ fn add_tests(
         log_level,
         cpp_flags,
     );
+    const test_regression_header = shaderHeader(b, "test/shaders/glsl/test_logistic_regression_shader.comp", tests_module);
+    const op_custom_header = shaderHeader(b, "test/shaders/glsl/test_op_custom_shader.comp", tests_module);
+    const shader_header = shaderHeader(b, "test/shaders/glsl/test_shader.comp", tests_module);
+    const workgroup_header = shaderHeader(b, "test/shaders/glsl/test_workgroup_shader.comp", tests_module);
     tests_module.addIncludePath(b.path("test"));
-    tests_module.addIncludePath(kompute.getEmittedIncludeTree());
+    tests_module.addIncludePath(test_regression_header.dirname());
+    tests_module.addIncludePath(op_custom_header.dirname());
+    tests_module.addIncludePath(shader_header.dirname());
+    tests_module.addIncludePath(workgroup_header.dirname());
     tests_module.linkLibrary(kompute);
     tests_module.linkLibrary(gtest_main);
     const kompute_tests = b.addExecutable(.{
@@ -357,7 +259,8 @@ fn shaderHeader(
 
     const generated = b.addWriteFiles();
 
-    const compile = b.addSystemCommand(&.{ "slangc", "-target", "spirv", "-entry", "main", "-stage", stage, "-O3" });
+    const compile = b.addSystemCommand(&.{ "slangc", "-target", "spirv", "-capability", "spirv_1_3" });
+    compile.addArgs(&.{ "-entry", "main", "-stage", stage, "-O3" });
     compile.addFileArg(b.path(src_path));
     compile.addArg("-o");
     const spv_file = compile.addOutputFileArg(spv_filename);
