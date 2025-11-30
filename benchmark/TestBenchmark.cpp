@@ -26,9 +26,9 @@ TEST(TestBenchmark, TestMultipleSequenceOperationMostlyGPU)
 
         layout(local_size_x = 1) in;
 
-        layout(binding = 0) buffer restrict readonly  tensorInA { float inA[]; };
-        layout(binding = 1) buffer restrict readonly  tensorInB { int   inB[]; };
-        layout(binding = 2) buffer restrict writeonly tensorOut { float out_[]; };
+        layout(binding = 0) restrict readonly  buffer tensorInA { float inA[]; };
+        layout(binding = 1) restrict readonly  buffer tensorInB { int   inB[]; };
+        layout(binding = 2) restrict writeonly buffer tensorOut { float out_[]; };
 
         void main() {
             const uint baseIndex = gl_WorkGroupID.x * 4;

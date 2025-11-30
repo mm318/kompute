@@ -17,7 +17,7 @@ const LogLevel = enum {
     critical,
     off,
 
-    fn parseLogLevel(log_level_str: []const u8, optimize: std.builtin.OptimizeMode) LogLevel {
+    fn parse(log_level_str: []const u8, optimize: std.builtin.OptimizeMode) LogLevel {
         if (std.ascii.eqlIgnoreCase(log_level_str, "trace")) {
             return .trace;
         } else if (std.ascii.eqlIgnoreCase(log_level_str, "debug")) {
@@ -83,7 +83,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const log_level_str = b.option([]const u8, "log-level", "Trace|Debug|Info|Warn|Error|Critical|Off|Default") orelse "Default";
-    const log_level = LogLevel.parseLogLevel(log_level_str, optimize);
+    const log_level = LogLevel.parse(log_level_str, optimize);
 
     const fmt_dep = b.dependency("fmt", .{});
     const fmt_artifact = fmt_dep.artifact("fmt");
@@ -139,40 +139,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(kompute);
 
     add_tests(b, target, optimize, kompute, log_level);
-
-    // if (enable_tests or enable_benchmark) {
-    //     if (enable_benchmark) {
-    //         const benchmark_module = makeCxxModule(b, target, optimize);
-    //         benchmark_module.addCSourceFiles(.{
-    //             .files = &.{
-    //                 "benchmark/TestBenchmark.cpp",
-    //                 "benchmark/shaders/Utils.cpp",
-    //             },
-    //             .flags = cpp_flags,
-    //         });
-    //         benchmark_module.addIncludePath(b.path("src/include"));
-    //         benchmark_module.addIncludePath(shader_include_dir);
-    //         benchmark_module.addIncludePath(fmt_include);
-    //         benchmark_module.addIncludePath(b.path("benchmark"));
-    //         benchmark_module.addIncludePath(gtest_paths.include_dir);
-    //         applyKomputeMacros(benchmark_module, log_macro, disable_logging);
-    //         benchmark_module.addCMacro("KOMPUTE_OPT_USE_SPDLOG", "0");
-    //         benchmark_module.addCMacro("FMT_HEADER_ONLY", "1");
-    //         benchmark_module.linkLibrary(kompute);
-    //         benchmark_module.linkLibrary(kp_logger);
-    //         benchmark_module.linkLibrary(gtest_paths.gtest_main);
-    //         benchmark_module.linkSystemLibrary("vulkan", .{});
-    //         benchmark_module.linkSystemLibrary("pthread", .{});
-
-    //         const kompute_benchmark = b.addExecutable(.{
-    //             .name = "kompute_benchmark",
-    //             .root_module = benchmark_module,
-    //         });
-
-    //         b.installArtifact(kompute_benchmark);
-    //         b.step("kompute_benchmark", "Build the kompute_benchmark executable").dependOn(&kompute_benchmark.step);
-    //     }
-    // }
+    add_benchmarks(b, target, optimize, kompute, log_level);
 }
 
 fn add_tests(
@@ -236,6 +203,43 @@ fn add_tests(
 
     const run_tests = b.addRunArtifact(kompute_tests);
     b.step("test", "Run kompute_tests").dependOn(&run_tests.step);
+}
+
+fn add_benchmarks(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    kompute: *std.Build.Step.Compile,
+    log_level: LogLevel,
+) void {
+    const googletest_dep = b.dependency("googletest", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const gtest_main = googletest_dep.artifact("gtest_main");
+
+    const benchmarks_module = makeCxxModule(
+        b,
+        target,
+        optimize,
+        &.{
+            "benchmark/TestBenchmark.cpp",
+            "benchmark/shaders/Utils.cpp",
+        },
+        log_level,
+        cpp_flags,
+    );
+    benchmarks_module.addIncludePath(b.path("benchmark"));
+    benchmarks_module.linkLibrary(kompute);
+    benchmarks_module.linkLibrary(gtest_main);
+    const kompute_tests = b.addExecutable(.{
+        .name = "kompute_benchmarks",
+        .root_module = benchmarks_module,
+    });
+    kompute_tests.step.dependOn(b.getInstallStep());
+
+    const run_benchmarks = b.addRunArtifact(kompute_tests);
+    b.step("benchmark", "Run kompute_benchmarks").dependOn(&run_benchmarks.step);
 }
 
 fn shaderHeader(
