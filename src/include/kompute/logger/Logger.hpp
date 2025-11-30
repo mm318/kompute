@@ -60,9 +60,7 @@ setupLogger();
 #define KP_LOG_TRACE(...) kp_trace(fmt::format(__VA_ARGS__))
 #else
 #define KP_LOG_TRACE(...)                                                      \
-    fmt::print("[{} {}] [trace] [{}:{}] {}\n",                                 \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[trace] [{}:{}] {}\n",                                         \
                __FILE__,                                                       \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))
@@ -85,17 +83,13 @@ setupLogger();
 #else
 #ifdef __FILE_NAME__ // gcc 12 provides only file name without path
 #define KP_LOG_DEBUG(...)                                                      \
-    fmt::print("[{} {}] [debug] [{}:{}] {}\n",                                 \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[debug] [{}:{}] {}\n",                                         \
                __FILE_NAME__,                                                  \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))
 #else
 #define KP_LOG_DEBUG(...)                                                      \
-    fmt::print("[{} {}] [debug] [{}:{}] {}\n",                                 \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[debug] [{}:{}] {}\n",                                         \
                __FILE__,                                                       \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))
@@ -118,9 +112,7 @@ setupLogger();
 #define KP_LOG_INFO(...) kp_info(fmt::format(__VA_ARGS__))
 #else
 #define KP_LOG_INFO(...)                                                       \
-    fmt::print("[{} {}] [info] [{}:{}] {}\n",                                  \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[info] [{}:{}] {}\n",                                          \
                __FILE__,                                                       \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))
@@ -142,9 +134,7 @@ setupLogger();
 #define KP_LOG_WARN(...) kp_warning(fmt::format(__VA_ARGS__))
 #else
 #define KP_LOG_WARN(...)                                                       \
-    fmt::print("[{} {}] [warn] [{}:{}] {}\n",                                  \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[warn] [{}:{}] {}\n",                                          \
                __FILE__,                                                       \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))
@@ -166,9 +156,7 @@ setupLogger();
 #define KP_LOG_ERROR(...) kp_error(fmt::format(__VA_ARGS__))
 #else
 #define KP_LOG_ERROR(...)                                                      \
-    fmt::print("[{} {}] [error] [{}:{}] {}\n",                                 \
-               __DATE__,                                                       \
-               __TIME__,                                                       \
+    fmt::print("[error] [{}:{}] {}\n",                                         \
                __FILE__,                                                       \
                __LINE__,                                                       \
                fmt::format(__VA_ARGS__))

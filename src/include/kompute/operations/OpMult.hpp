@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 
+#include <cassert>
 #include <fstream>
 
 #include "kompute/Core.hpp"
 
-#include "ShaderOpMult.hpp"
+#include "ShaderOpMult.h"
 
 #include "kompute/Algorithm.hpp"
 #include "kompute/Tensor.hpp"
@@ -42,8 +43,9 @@ class OpMult : public OpAlgoDispatch
               std::to_string(memObjects.size()));
         }
 
-        const std::vector<uint32_t> spirv = std::vector<uint32_t>(
-          SHADEROPMULT_COMP_SPV.begin(), SHADEROPMULT_COMP_SPV.end());
+        assert(SHADEROPMULT_COMP_SPV_SIZE % sizeof(uint32_t) == 0);
+        std::vector<uint32_t> spirv(SHADEROPMULT_COMP_SPV_SIZE / sizeof(uint32_t));
+        std::memcpy(spirv.data(), SHADEROPMULT_COMP_SPV_DATA, SHADEROPMULT_COMP_SPV_SIZE);
 
         algorithm->rebuild<>(memObjects, spirv);
     }

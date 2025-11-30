@@ -5,7 +5,7 @@
 #include "kompute/Kompute.hpp"
 #include "kompute/logger/Logger.hpp"
 
-#include "test_logistic_regression_shader.hpp"
+#include "test_logistic_regression_shader.h"
 
 TEST(TestLogisticRegression, TestMainLogisticRegression)
 {
@@ -42,9 +42,12 @@ TEST(TestLogisticRegression, TestMainLogisticRegression)
 
         std::vector<uint32_t> spirv2{ 0x1, 0x2 };
 
+        ASSERT_EQ(TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE % sizeof(uint32_t), 0u);
         std::vector<uint32_t> spirv(
-          kp::TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV.begin(),
-          kp::TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV.end());
+          TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE / sizeof(uint32_t));
+        std::memcpy(spirv.data(),
+                    TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_DATA,
+                    TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE);
 
         std::shared_ptr<kp::Algorithm> algorithm = mgr.algorithm(
           params, spirv, kp::Workgroup({ 5 }), std::vector<float>({ 5.0 }));
@@ -117,9 +120,12 @@ TEST(TestLogisticRegression, TestMainLogisticRegressionManualCopy)
 
         mgr.sequence()->record<kp::OpSyncDevice>(params)->eval();
 
+        ASSERT_EQ(TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE % sizeof(uint32_t), 0u);
         std::vector<uint32_t> spirv(
-          kp::TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV.begin(),
-          kp::TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV.end());
+          TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE / sizeof(uint32_t));
+        std::memcpy(spirv.data(),
+                    TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_DATA,
+                    TEST_LOGISTIC_REGRESSION_SHADER_COMP_SPV_SIZE);
 
         std::shared_ptr<kp::Algorithm> algorithm = mgr.algorithm(
           params, spirv, kp::Workgroup(), std::vector<float>({ 5.0 }));

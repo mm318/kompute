@@ -1,0 +1,19 @@
+.{
+    .name = .googletest,
+    .version = "1.15.2",
+
+    .dependencies = .{
+        .googletest = .{
+            .url = "https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz",
+            .hash = "N-V-__8AAMpEPQABCTtXlOz1pbU4h2IsddYzrysMNAKiZs5F",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "LICENSE",
+    },
+
+    .fingerprint = 0xc36e6f7a3d5c7591,
+}

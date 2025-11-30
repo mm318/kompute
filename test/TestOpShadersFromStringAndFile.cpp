@@ -6,8 +6,8 @@
 #include "kompute/logger/Logger.hpp"
 
 #include "shaders/Utils.hpp"
-#include "test_op_custom_shader.hpp"
-#include "test_shader.hpp"
+#include "test_op_custom_shader.h"
+#include "test_shader.h"
 
 // Introducing custom struct that can be used for tensors
 struct TestStruct
@@ -93,11 +93,16 @@ TEST(TestShaderEndianness, ShaderRawDataFromConstructor)
             pa[index] = index;
         }
     )");
-
     std::vector<uint32_t> spirv = compileSource(shader);
-    std::vector<uint32_t> spirv2(kp::TEST_SHADER_COMP_SPV.begin(),
-                                 kp::TEST_SHADER_COMP_SPV.end());
+
+    ASSERT_EQ(TEST_SHADER_COMP_SPV_SIZE % sizeof(uint32_t), 0u);
+    std::vector<uint32_t> spirv2(TEST_SHADER_COMP_SPV_SIZE / sizeof(uint32_t));
+    std::memcpy(spirv2.data(),
+                TEST_SHADER_COMP_SPV_DATA,
+                TEST_SHADER_COMP_SPV_SIZE);
+
     EXPECT_EQ(spirv.size(), spirv2.size());
+    
     for (size_t i = 0; i < spirv.size(); i++) {
         EXPECT_EQ(spirv[i], spirv2[i]);
     }
@@ -145,8 +150,13 @@ TEST(TestOpAlgoCreate, ShaderCompiledDataFromConstructor)
     std::shared_ptr<kp::TensorT<float>> tensorA = mgr.tensor({ 3, 4, 5 });
     std::shared_ptr<kp::TensorT<float>> tensorB = mgr.tensor({ 0, 0, 0 });
 
-    std::vector<uint32_t> spirv(kp::TEST_OP_CUSTOM_SHADER_COMP_SPV.begin(),
-                                kp::TEST_OP_CUSTOM_SHADER_COMP_SPV.end());
+    ASSERT_EQ(TEST_OP_CUSTOM_SHADER_COMP_SPV_SIZE % sizeof(uint32_t), 0u);
+    std::vector<uint32_t> spirv(
+      TEST_OP_CUSTOM_SHADER_COMP_SPV_SIZE / sizeof(uint32_t));
+    std::memcpy(spirv.data(),
+                TEST_OP_CUSTOM_SHADER_COMP_SPV_DATA,
+                TEST_OP_CUSTOM_SHADER_COMP_SPV_SIZE);
+
     std::vector<std::shared_ptr<kp::Memory>> params = { tensorA, tensorB };
 
     mgr.sequence()

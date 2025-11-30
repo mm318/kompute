@@ -15,9 +15,11 @@ compileSource(const std::string& source)
     fileOut.close();
     if (system(
           std::string(
-            "glslangValidator -V tmp_kp_shader.comp -o tmp_kp_shader.comp.spv")
+            "slangc -target spirv -capability spirv_1_3"
+            " -entry main -stage compute -O3"
+            " tmp_kp_shader.comp -o tmp_kp_shader.comp.spv")
             .c_str())) {
-        throw std::runtime_error("Error running glslangValidator command");
+        throw std::runtime_error("Error running slangc command");
     }
     std::ifstream fileStream("tmp_kp_shader.comp.spv", std::ios::binary);
     std::vector<char> buffer;
