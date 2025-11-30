@@ -1,8 +1,7 @@
 
 ![GitHub](https://img.shields.io/badge/Version-0.7.0-green.svg)
 ![GitHub](https://img.shields.io/badge/C++-14—20-purple.svg)
-![GitHub](https://img.shields.io/badge/Build-cmake-red.svg)
-![GitHub](https://img.shields.io/badge/Python-3.7—3.9-blue.svg)
+![GitHub](https://img.shields.io/badge/Build-zig-red.svg)
 ![GitHub](https://img.shields.io/badge/License-Apache-black.svg)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4834/badge)](https://bestpractices.coreinfrastructure.org/projects/4834)
 
@@ -49,7 +48,7 @@
 
 ## Principles & Features
 
-* [Flexible Python module](#your-first-kompute-python) with [C++ SDK](#your-first-kompute-c) for optimizations
+* [C++ SDK](#your-first-kompute-c)
 * [Asynchronous & parallel processing](#asynchronous-and-parallel-operations) support through GPU family queues
 * [Mobile enabled](#mobile-enabled) with examples via Android NDK across several architectures
 * BYOV: [Bring-your-own-Vulkan design](#motivations) to play nice with existing Vulkan applications
@@ -69,7 +68,7 @@
 
 ## Getting Started
 
-Below you can find a GPU multiplication example using the C++ and Python Kompute interfaces.
+Below you can find a GPU multiplication example using the C++ Kompute interfaces.
 
 You can [join the Discord](https://discord.gg/MaH5Jv5zwv) for questions / discussion, open a [github issue](https://github.com/KomputeProject/kompute/issues/new), or read [the documentation](https://kompute.cc/).
 
@@ -167,99 +166,9 @@ int main() {
 
 ```
 
-### Your First Kompute (Python)
-
-The [Python package](https://kompute.cc/overview/python-package.html) provides a [high level interactive interface](https://kompute.cc/overview/python-reference.html) that enables for experimentation whilst ensuring high performance and fast development workflows.
-
-```python
-
-from .utils import compile_source # using util function from python/test/utils
-
-def kompute(shader):
-    # 1. Create Kompute Manager with default settings (device 0, first queue and no extensions)
-    mgr = kp.Manager()
-
-    # 2. Create and initialise Kompute Tensors through manager
-
-    # Default tensor constructor simplifies creation of float values
-    tensor_in_a = mgr.tensor([2, 2, 2])
-    tensor_in_b = mgr.tensor([1, 2, 3])
-    # Explicit type constructor supports uint32, int32, double, float and bool
-    tensor_out_a = mgr.tensor_t(np.array([0, 0, 0], dtype=np.uint32))
-    tensor_out_b = mgr.tensor_t(np.array([0, 0, 0], dtype=np.uint32))
-    assert(t_data.data_type() == kp.DataTypes.uint)
-
-    params = [tensor_in_a, tensor_in_b, tensor_out_a, tensor_out_b]
-
-    # 3. Create algorithm based on shader (supports buffers & push/spec constants)
-    workgroup = (3, 1, 1)
-    spec_consts = [2]
-    push_consts_a = [2]
-    push_consts_b = [3]
-
-    # See documentation shader section for compile_source
-    spirv = compile_source(shader)
-
-    algo = mgr.algorithm(params, spirv, workgroup, spec_consts, push_consts_a)
-
-    # 4. Run operation synchronously using sequence
-    (mgr.sequence()
-        .record(kp.OpTensorSyncDevice(params))
-        .record(kp.OpAlgoDispatch(algo)) # Binds default push consts provided
-        .eval() # evaluates the two recorded ops
-        .record(kp.OpAlgoDispatch(algo, push_consts_b)) # Overrides push consts
-        .eval()) # evaluates only the last recorded op
-
-    # 5. Sync results from the GPU asynchronously
-    sq = mgr.sequence()
-    sq.eval_async(kp.OpTensorSyncLocal(params))
-
-    # ... Do other work asynchronously whilst GPU finishes
-
-    sq.eval_await()
-
-    # Prints the first output which is: { 4, 8, 12 }
-    print(tensor_out_a)
-    # Prints the first output which is: { 10, 10, 10 }
-    print(tensor_out_b)
-
-if __name__ == "__main__":
-
-    # Define a raw string shader (or use the Kompute tools to compile to SPIRV / C++ header
-    # files). This shader shows some of the main components including constants, buffers, etc
-    shader = """
-        #version 450
-
-        layout (local_size_x = 1) in;
-
-        // The input tensors bind index is relative to index in parameter passed
-        layout(set = 0, binding = 0) buffer buf_in_a { float in_a[]; };
-        layout(set = 0, binding = 1) buffer buf_in_b { float in_b[]; };
-        layout(set = 0, binding = 2) buffer buf_out_a { uint out_a[]; };
-        layout(set = 0, binding = 3) buffer buf_out_b { uint out_b[]; };
-
-        // Kompute supports push constants updated on dispatch
-        layout(push_constant) uniform PushConstants {
-            float val;
-        } push_const;
-
-        // Kompute also supports spec constants on initalization
-        layout(constant_id = 0) const float const_one = 0;
-
-        void main() {
-            uint index = gl_GlobalInvocationID.x;
-            out_a[index] += uint( in_a[index] * in_b[index] );
-            out_b[index] += uint( const_one * push_const.val );
-        }
-    """
-
-    kompute(shader)
-
-```
-
 ### Interactive Notebooks & Hands on Videos
 
-You are able to try out the interactive Colab Notebooks which allow you to use a free GPU. The available examples are the Python and C++ examples below:
+You are able to try out the interactive Colab Notebooks which allow you to use a free GPU. The available examples are the C++ examples below:
 
 <table>
 <tr>
@@ -268,22 +177,12 @@ You are able to try out the interactive Colab Notebooks which allow you to use a
 <h5>Try the interactive <a href="https://colab.research.google.com/drive/1l3hNSq2AcJ5j2E3YIw__jKy5n6M615GP?usp=sharing">C++ Colab</a> from <a href="https://towardsdatascience.com/machine-learning-and-data-processing-in-the-gpu-with-vulkan-kompute-c9350e5e5d3a">Blog Post</a></h5>
 </td>
 
-<td>
-<h5>Try the interactive <a href="https://colab.research.google.com/drive/15uQ7qMZuOyk8JcXF-3SB2R5yNFW21I4P">Python Colab</a> from <a href="https://towardsdatascience.com/beyond-cuda-gpu-accelerated-python-for-machine-learning-in-cross-vendor-graphics-cards-made-simple-6cc828a45cc3">Blog Post</a></h5>
-</td>
-
 </tr>
 <tr>
 
 <td width="50%">
 <a href="https://colab.research.google.com/drive/1l3hNSq2AcJ5j2E3YIw__jKy5n6M615GP?authuser=1#scrollTo=1BipBsO-fQRD">
 <img src="https://raw.githubusercontent.com/KomputeProject/kompute/master/docs/images/binder-cpp.jpg">
-</a>
-</td>
-
-<td>
-<a href="https://colab.research.google.com/drive/15uQ7qMZuOyk8JcXF-3SB2R5yNFW21I4P">
-<img src="https://raw.githubusercontent.com/KomputeProject/kompute/master/docs/images/binder-python.jpg">
 </a>
 </td>
 
@@ -302,22 +201,12 @@ Both videos have timestamps which will allow you to skip to the most relevant se
 <h5>Watch the video for <a href="https://www.youtube.com/watch?v=Xz4fiQNmGSA">C++ Enthusiasts</a> </h5>
 </td>
 
-<td>
-<h5>Watch the video for <a href="https://www.youtube.com/watch?v=AJRyZ09IUdg">Python & Machine Learning</a> Enthusiasts</h5>
-</td>
-
 </tr>
 <tr>
 
 <td width="50%">
 <a href="https://www.youtube.com/watch?v=Xz4fiQNmGSA">
 <img src="https://raw.githubusercontent.com/KomputeProject/kompute/master/docs/images/kompute-cpp-video.png">
-</a>
-</td>
-
-<td>
-<a href="https://www.youtube.com/watch?v=AJRyZ09IUdg">
-<img src="https://raw.githubusercontent.com/KomputeProject/kompute/master/docs/images/kompute-python-video.png">
 </a>
 </td>
 
@@ -419,37 +308,15 @@ You can also access the <a href="https://github.com/KomputeProject/kompute/tree/
 * [Android NDK Mobile Kompute ML Application](https://towardsdatascience.com/gpu-accelerated-machine-learning-in-your-mobile-applications-using-the-android-ndk-vulkan-kompute-1e9da37b7617)
 * [Game Development Kompute ML in Godot Engine](https://towardsdatascience.com/supercharging-game-development-with-gpu-accelerated-ml-using-vulkan-kompute-the-godot-game-engine-4e75a84ea9f0)
 
-## Python Package
-
-Besides the C++ core SDK you can also use the Python package of Kompute, which exposes the same core functionality, and supports interoperability with Python objects like Lists, Numpy Arrays, etc.
-
-The only dependencies are Python 3.5+ and Cmake 3.4.1+. You can install Kompute from the [Python pypi package](https://pypi.org/project/kp/) using the following command.
-
-```
-pip install kp
-```
-
-You can also install from master branch using:
-
-```
-pip install git+git://github.com/KomputeProject/kompute.git@master
-```
-
-For further details you can read the [Python Package documentation](https://kompute.cc/overview/python-package.html) or the [Python Class Reference documentation](https://kompute.cc/overview/python-reference.html).
-
 ## C++ Build Overview
 
-The build system provided uses `cmake`, which allows for cross platform builds.
+The build system provided uses `zig`, which allows for cross platform builds.
 
-The top level `Makefile` provides a set of optimized configurations for development as well as the docker image build, but you can start a build with the following command:
+You can start a build with the following command:
 
 ```
-   cmake -Bbuild
+zig build -Doptimize=ReleaseSafe
 ```
-
-You also are able to add Kompute in your repo with `add_subdirectory` - the [Android example CMakeLists.txt file](https://github.com/KomputeProject/kompute/blob/7c8c0eeba2cdc098349fcd999102bb2cca1bf711/examples/android/android-simple/app/src/main/cpp/CMakeLists.txt#L3) shows how this would be done.
-
-For a more advanced overview of the build configuration check out the [Build System Deep Dive](https://kompute.cc/overview/build-system.html) documentation.
 
 ## Kompute Development
 
@@ -470,16 +337,9 @@ We appreciate PRs and Issues. If you want to contribute try checking the "Good f
 * Follows Mozilla C++ Style Guide https://www-archive.mozilla.org/hacking/mozilla-style-guide.html
     + Uses post-commit hook to run the linter, you can set it up so it runs the linter before commit
     + All dependencies are defined in vcpkg.json 
-* Uses cmake as build system, and provides a top level makefile with recommended command
-* Uses xxd (or xxd.exe windows 64bit port) to convert shader spirv to header files
+* Uses zig as build system
+* Uses Zig's @embedFile() feature to convert shader spirv to header files
 * Uses doxygen and sphinx for documentation and autodocs
-* Uses vcpkg for finding the dependencies, it's the recommended set up to retrieve the libraries
-
-If you want to run with debug layers you can add them with the `KOMPUTE_ENV_DEBUG_LAYERS` parameter as:
-
-```
-export KOMPUTE_ENV_DEBUG_LAYERS="VK_LAYER_LUNARG_api_dump"
-```
 
 ##### Updating documentation
 
@@ -492,19 +352,14 @@ To update the documentation you will need to:
 
 Running the unit tests has been significantly simplified for contributors.
 
-The tests run on CPU, and can be triggered using the ACT command line interface (https://github.com/nektos/act) - once you install the command line (And start the Docker daemon) you just have to type:
+The tests run on CPU, and can be triggered using `zig`:
 
 ```
-$ act
-
-[Python Tests/python-tests] 🚀  Start image=axsauze/kompute-builder:0.2
-[C++ Tests/cpp-tests      ] 🚀  Start image=axsauze/kompute-builder:0.2
-[C++ Tests/cpp-tests      ]   🐳  docker run image=axsauze/kompute-builder:0.2 entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
-[Python Tests/python-tests]   🐳  docker run image=axsauze/kompute-builder:0.2 entrypoint=["/usr/bin/tail" "-f" "/dev/null"] cmd=[]
+$ zig build test
 ...
 ```
 
-The repository contains unit tests for the C++ and Python code, and can be found under the `test/` and `python/test` folder.
+The repository contains unit tests for the C++ code, and can be found under the `test/` folder.
 
 The tests are currently run through the CI using Github Actions. It uses the images found in `docker-builders/`.
 
