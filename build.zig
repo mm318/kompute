@@ -85,7 +85,10 @@ pub fn build(b: *std.Build) void {
     const log_level_str = b.option([]const u8, "log-level", "Trace|Debug|Info|Warn|Error|Critical|Off|Default") orelse "Default";
     const log_level = LogLevel.parse(log_level_str, optimize);
 
-    const fmt_dep = b.dependency("fmt", .{});
+    const fmt_dep = b.dependency("fmt", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const fmt_artifact = fmt_dep.artifact("fmt");
 
     const logger_module = makeCxxModule(b, target, optimize, &.{"src/logger/Logger.cpp"}, log_level, cpp_flags);
