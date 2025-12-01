@@ -1,4 +1,4 @@
-name: C++ Tests
+name: C++ Tests & Benchmarks
 
 on:
   push:
@@ -6,123 +6,62 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  ZIG_VERSION: 0.15.2
+  SLANG_VERSION: 2025.23.1
+
 jobs:
-  cpp-tests-1-4-debug-with-debug-layers:
-    runs-on: ubuntu-latest
-    container: axsauze/kompute-builder:0.4
-    env:
-      VK_ICD_FILENAMES: "/swiftshader/vk_swiftshader_icd.json"
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: false
-    - name: "[Release g++] Build & Test"
-      uses: KomputeProject/action-cmake-build@master
-      with:
-        build-dir: ${{github.workspace}}/build
-        source-dir: ${{github.workspace}}
-        cc: gcc
-        cxx: g++
-        build-type: Debug
-        run-test: false
-        ctest-options: -V
-        configure-options: -DKOMPUTE_OPT_BUILD_TESTS=ON -DKOMPUTE_OPT_DISABLE_VK_DEBUG_LAYERS=OFF -DKOMPUTE_OPT_USE_BUILT_IN_VULKAN_HEADER=ON -DKOMPUTE_OPT_BUILT_IN_VULKAN_HEADER_TAG=v1.4.304 -DKOMPUTE_OPT_DISABLE_VULKAN_VERSION_CHECK=ON
-    - name: Run tests
-      run: make mk_run_tests
+  cpp-tests:
+    strategy:
+      matrix:
+        include:
+          # - target: 'native'
+          #   optimizaton: 'Debug'
+          - target: 'native'
+            optimizaton: 'ReleaseSafe'
 
-  cpp-tests-debug-with-debug-layers:
-    runs-on: ubuntu-latest
-    container: axsauze/kompute-builder:0.4
-    env:
-      VK_ICD_FILENAMES: "/swiftshader/vk_swiftshader_icd.json"
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: false
-    - name: "[Release g++] Build & Test"
-      uses: KomputeProject/action-cmake-build@master
-      with:
-        build-dir: ${{github.workspace}}/build
-        source-dir: ${{github.workspace}}
-        cc: gcc
-        cxx: g++
-        build-type: Debug
-        run-test: false
-        ctest-options: -V
-        configure-options: -DKOMPUTE_OPT_BUILD_TESTS=ON -DKOMPUTE_OPT_DISABLE_VK_DEBUG_LAYERS=OFF -DKOMPUTE_OPT_USE_BUILT_IN_VULKAN_HEADER=ON
-    - name: Run tests
-      run: make mk_run_tests
+    runs-on: ubuntu-24.04
 
-  cpp-tests-release-with-debug-layers:
-    runs-on: ubuntu-latest
-    container: axsauze/kompute-builder:0.4
-    env:
-      VK_ICD_FILENAMES: "/swiftshader/vk_swiftshader_icd.json"
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: false
-    - name: "[Release g++] Build & Test"
-      uses: KomputeProject/action-cmake-build@master
-      with:
-        build-dir: ${{github.workspace}}/build
-        source-dir: ${{github.workspace}}
-        cc: gcc
-        cxx: g++
-        build-type: Release
-        run-test: false
-        ctest-options: -V
-        configure-options: -DKOMPUTE_OPT_BUILD_TESTS=ON -DKOMPUTE_OPT_DISABLE_VK_DEBUG_LAYERS=OFF -DKOMPUTE_OPT_USE_BUILT_IN_VULKAN_HEADER=ON
-    - name: Run tests
-      run: make mk_run_tests
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-  cpp-tests-debug-without-debug-layers:
-    runs-on: ubuntu-latest
-    container: axsauze/kompute-builder:0.4
-    env:
-      VK_ICD_FILENAMES: "/swiftshader/vk_swiftshader_icd.json"
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: false
-    - name: "[Release g++] Build & Test"
-      uses: KomputeProject/action-cmake-build@master
-      with:
-        build-dir: ${{github.workspace}}/build
-        source-dir: ${{github.workspace}}
-        cc: gcc
-        cxx: g++
-        build-type: Debug
-        run-test: false
-        ctest-options: -V
-        configure-options: -DKOMPUTE_OPT_BUILD_TESTS=ON -DKOMPUTE_OPT_DISABLE_VK_DEBUG_LAYERS=ON -DKOMPUTE_OPT_USE_BUILT_IN_VULKAN_HEADER=ON
-    - name: Run tests
-      run: make mk_run_tests
-  
-  cpp-tests-release-without-debug-layers:
-    runs-on: ubuntu-latest
-    container: axsauze/kompute-builder:0.4
-    env:
-      VK_ICD_FILENAMES: "/swiftshader/vk_swiftshader_icd.json"
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: false
-    - name: "[Release g++] Build & Test"
-      uses: KomputeProject/action-cmake-build@master
-      with:
-        build-dir: ${{github.workspace}}/build
-        source-dir: ${{github.workspace}}
-        cc: gcc
-        cxx: g++
-        build-type: Release
-        run-test: false
-        ctest-options: -V
-        configure-options: -DKOMPUTE_OPT_BUILD_TESTS=ON -DKOMPUTE_OPT_DISABLE_VK_DEBUG_LAYERS=ON -DKOMPUTE_OPT_USE_BUILT_IN_VULKAN_HEADER=ON
-    - name: Run tests
-      run: make mk_run_tests
+      - name: Install build dependencies (Zig compiler)
+        uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+
+      - name: Install build dependencies (Vulkan libraries)
+        run: |
+          apt update
+          apt install -y libvulkan-dev vulkan-tools
+
+      - name: Install build dependencies (Slang compiler)
+        run: |
+          set -euxo pipefail
+          base="https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-linux-x86_64.tar.gz"
+          mkdir -p "$RUNNER_TEMP/slang"
+          curl -fL ${base} -o "$RUNNER_TEMP/slang/slang.tar.gz"
+          tar -xzf "$RUNNER_TEMP/slang/slang.tar.gz" -C "$RUNNER_TEMP/slang"
+          slangc_path="$RUNNER_TEMP/slang/bin/slangc"
+          if [ -z "$slangc_path" ]; then
+            echo "slangc not found" >&2
+            exit 1
+          fi
+          chmod +x "$slangc_path"
+          echo "$(dirname "$slangc_path")" >> "$GITHUB_PATH"
+
+      - name: Install runtime dependencies (Vulkan software renderer)
+        uses: serenity4/julia-lavapipe@v1
+
+      - name: Check formatting
+        run:  |
+          zig fmt --check .
+
+      - name: Run tests
+        run: |
+          zig build -Doptimize=${{ matrix.optimizaton }} test --summary all
+
+      - name: Run benchmarks
+        run: |
+          zig build -Doptimize=${{ matrix.optimizaton }} benchmark --summary all
