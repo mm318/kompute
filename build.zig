@@ -128,8 +128,6 @@ pub fn build(b: *std.Build) void {
     const logistic_reg_header = shaderHeader(b, "src/shaders/glsl/ShaderLogisticRegression.comp", kompute_module);
     kompute_module.addIncludePath(b.path("src/include"));
     kompute_module.linkLibrary(kp_logger);
-    kompute_module.linkSystemLibrary("vulkan", .{});
-    kompute_module.linkSystemLibrary("pthread", .{});
     const kompute = b.addLibrary(.{
         .name = "kompute",
         .root_module = kompute_module,
@@ -198,6 +196,7 @@ fn add_tests(
     tests_module.addIncludePath(workgroup_header.dirname());
     tests_module.linkLibrary(kompute);
     tests_module.linkLibrary(gtest_main);
+    tests_module.linkSystemLibrary("vulkan", .{});
     const kompute_tests = b.addExecutable(.{
         .name = "kompute_tests",
         .root_module = tests_module,
@@ -235,6 +234,7 @@ fn add_benchmarks(
     benchmarks_module.addIncludePath(b.path("benchmark"));
     benchmarks_module.linkLibrary(kompute);
     benchmarks_module.linkLibrary(gtest_main);
+    benchmarks_module.linkSystemLibrary("vulkan", .{});
     const kompute_tests = b.addExecutable(.{
         .name = "kompute_benchmarks",
         .root_module = benchmarks_module,
