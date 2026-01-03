@@ -8,7 +8,7 @@ const cpp_flags = &.{
     "-Wpedantic",
 };
 
-const LogLevel = enum {
+pub const LogLevel = enum {
     trace,
     debug,
     info,
@@ -17,7 +17,7 @@ const LogLevel = enum {
     critical,
     off,
 
-    fn parse(log_level_str: []const u8, optimize: std.builtin.OptimizeMode) LogLevel {
+    pub fn parse(log_level_str: []const u8, optimize: std.builtin.OptimizeMode) LogLevel {
         if (std.ascii.eqlIgnoreCase(log_level_str, "trace")) {
             return .trace;
         } else if (std.ascii.eqlIgnoreCase(log_level_str, "debug")) {
@@ -42,6 +42,19 @@ const LogLevel = enum {
             };
         }
     }
+
+    pub fn getPreprocessorDefine(self: LogLevel) []const u8 {
+        const log_macro = switch (self) {
+            .trace => "KOMPUTE_LOG_LEVEL_TRACE",
+            .debug => "KOMPUTE_LOG_LEVEL_DEBUG",
+            .info => "KOMPUTE_LOG_LEVEL_INFO",
+            .warn => "KOMPUTE_LOG_LEVEL_WARN",
+            .err => "KOMPUTE_LOG_LEVEL_ERROR",
+            .critical => "KOMPUTE_LOG_LEVEL_CRITICAL",
+            .off => "KOMPUTE_LOG_LEVEL_OFF",
+        };
+        return log_macro;
+    }
 };
 
 fn makeCxxModule(
@@ -62,15 +75,7 @@ fn makeCxxModule(
 
     mod.addCSourceFiles(.{ .files = srcs, .flags = flags });
 
-    const log_macro = switch (log_level) {
-        .trace => "KOMPUTE_LOG_LEVEL_TRACE",
-        .debug => "KOMPUTE_LOG_LEVEL_DEBUG",
-        .info => "KOMPUTE_LOG_LEVEL_INFO",
-        .warn => "KOMPUTE_LOG_LEVEL_WARN",
-        .err => "KOMPUTE_LOG_LEVEL_ERROR",
-        .critical => "KOMPUTE_LOG_LEVEL_CRITICAL",
-        .off => "KOMPUTE_LOG_LEVEL_OFF",
-    };
+    const log_macro = log_level.getPreprocessorDefine();
     mod.addCMacro("KOMPUTE_OPT_ACTIVE_LOG_LEVEL", log_macro);
     mod.addCMacro("KOMPUTE_OPT_LOG_LEVEL_DISABLED", if (log_level == .off) "1" else "0");
     // mod.addCMacro("KOMPUTE_OPT_USE_SPDLOG", "0");   // unnecessary
@@ -82,7 +87,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const log_level_str = b.option([]const u8, "log-level", "Trace|Debug|Info|Warn|Error|Critical|Off|Default") orelse "Default";
+    const log_level_str = b.option([]const u8, "log_level", "Trace|Debug|Info|Warn|Error|Critical|Off|Default") orelse "Default";
     const log_level = LogLevel.parse(log_level_str, optimize);
 
     const fmt_dep = b.dependency("fmt", .{
@@ -139,11 +144,11 @@ pub fn build(b: *std.Build) void {
     kompute.installHeader(logistic_reg_header, logistic_reg_header.basename(b, null));
     b.installArtifact(kompute);
 
-    add_tests(b, target, optimize, kompute, log_level);
-    add_benchmarks(b, target, optimize, kompute, log_level);
+    addTests(b, target, optimize, kompute, log_level);
+    addBenchmarks(b, target, optimize, kompute, log_level);
 }
 
-fn add_tests(
+fn addTests(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
@@ -207,7 +212,7 @@ fn add_tests(
     b.step("test", "Run kompute_tests").dependOn(&run_tests.step);
 }
 
-fn add_benchmarks(
+fn addBenchmarks(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
