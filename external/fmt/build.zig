@@ -25,8 +25,8 @@ pub fn build(b: *std.Build) void {
             .patch = 4,
         },
     });
-    lib.addIncludePath(fmt_dep.path("include"));
-    lib.addCSourceFiles(.{
+    lib.root_module.addIncludePath(fmt_dep.path("include"));
+    lib.root_module.addCSourceFiles(.{
         .root = fmt_dep.path("src"),
         .files = src,
     });
@@ -39,9 +39,9 @@ pub fn build(b: *std.Build) void {
 
     // MSVC don't build llvm-libc++
     if (lib.rootModuleTarget().abi != .msvc)
-        lib.linkLibCpp()
+        lib.root_module.link_libcpp = true
     else
-        lib.linkLibC();
+        lib.root_module.link_libc = true;
 
     lib.installHeadersDirectory(fmt_dep.path("include"), "", .{});
     b.installArtifact(lib);
@@ -197,19 +197,19 @@ fn buildTest(b: *std.Build, info: BuildInfo) void {
         test_exe.root_module.include_dirs.append(b.allocator, include_dir) catch unreachable;
     }
     if (info.dep) |dep_test| {
-        test_exe.addIncludePath(dep_test.path("test"));
-        test_exe.addIncludePath(dep_test.path("test/gtest"));
-        test_exe.addIncludePath(dep_test.path("test/gmock"));
+        test_exe.root_module.addIncludePath(dep_test.path("test"));
+        test_exe.root_module.addIncludePath(dep_test.path("test/gtest"));
+        test_exe.root_module.addIncludePath(dep_test.path("test/gmock"));
 
-        test_exe.addCSourceFiles(.{
+        test_exe.root_module.addCSourceFiles(.{
             .root = dep_test.path("test"),
             .files = &.{info.path},
         });
-        test_exe.addCSourceFiles(.{
+        test_exe.root_module.addCSourceFiles(.{
             .root = dep_test.path("test/gtest"),
             .files = &.{"gmock-gtest-all.cc"},
         });
-        test_exe.addCSourceFiles(.{
+        test_exe.root_module.addCSourceFiles(.{
             .root = dep_test.path("test"),
             .files = test_src,
             .flags = &.{
@@ -221,11 +221,11 @@ fn buildTest(b: *std.Build, info: BuildInfo) void {
     }
     test_exe.root_module.addCMacro("_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING", "1");
     test_exe.root_module.addCMacro("GTEST_HAS_PTHREAD", "0");
-    test_exe.linkLibrary(info.lib);
+    test_exe.root_module.linkLibrary(info.lib);
     if (test_exe.rootModuleTarget().abi != .msvc)
-        test_exe.linkLibCpp()
+        test_exe.root_module.link_libcpp = true
     else
-        test_exe.linkLibC();
+        test_exe.root_module.link_libc = true;
     b.installArtifact(test_exe);
 
     const run_cmd = b.addRunArtifact(test_exe);

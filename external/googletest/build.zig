@@ -14,10 +14,10 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    gtest.addCSourceFile(.{ .file = googletest_dep.path("googletest/src/gtest-all.cc") });
-    gtest.addIncludePath(googletest_dep.path("googletest")); // because "gtest-all.cc" includes "src/*.cc"...
-    gtest.addIncludePath(googletest_dep.path("googletest/include"));
-    gtest.linkLibCpp();
+    gtest.root_module.addCSourceFile(.{ .file = googletest_dep.path("googletest/src/gtest-all.cc") });
+    gtest.root_module.addIncludePath(googletest_dep.path("googletest")); // because "gtest-all.cc" includes "src/*.cc"...
+    gtest.root_module.addIncludePath(googletest_dep.path("googletest/include"));
+    gtest.root_module.link_libcpp = true;
     gtest.installHeadersDirectory(googletest_dep.path("googletest/include"), ".", .{});
     b.installArtifact(gtest);
 
@@ -29,8 +29,8 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    gtest_main.addCSourceFile(.{ .file = googletest_dep.path("googletest/src/gtest_main.cc") });
-    gtest_main.linkLibrary(gtest);
+    gtest_main.root_module.addCSourceFile(.{ .file = googletest_dep.path("googletest/src/gtest_main.cc") });
+    gtest_main.root_module.linkLibrary(gtest);
     gtest_main.installHeadersDirectory(googletest_dep.path("googletest/include"), ".", .{});
     b.installArtifact(gtest_main);
 
@@ -42,10 +42,10 @@ pub fn build(b: *std.Build) void {
             .link_libc = true,
         }),
     });
-    gmock.addCSourceFile(.{ .file = googletest_dep.path("googlemock/src/gmock-all.cc") });
-    gmock.addIncludePath(googletest_dep.path("googlemock")); // because "gmock-all.cc" includes "src/*.cc"...
-    gmock.addIncludePath(googletest_dep.path("googlemock/include"));
-    gmock.linkLibrary(gtest);
+    gmock.root_module.addCSourceFile(.{ .file = googletest_dep.path("googlemock/src/gmock-all.cc") });
+    gmock.root_module.addIncludePath(googletest_dep.path("googlemock")); // because "gmock-all.cc" includes "src/*.cc"...
+    gmock.root_module.addIncludePath(googletest_dep.path("googlemock/include"));
+    gmock.root_module.linkLibrary(gtest);
     gmock.installHeadersDirectory(googletest_dep.path("googlemock/include"), ".", .{});
     gmock.installHeadersDirectory(googletest_dep.path("googletest/include"), ".", .{}); // transitive dependency
     b.installArtifact(gmock);
@@ -59,8 +59,8 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    gmock_main.addCSourceFile(.{ .file = googletest_dep.path("googlemock/src/gmock_main.cc") });
-    gmock_main.linkLibrary(gmock);
+    gmock_main.root_module.addCSourceFile(.{ .file = googletest_dep.path("googlemock/src/gmock_main.cc") });
+    gmock_main.root_module.linkLibrary(gmock);
     gmock_main.installHeadersDirectory(googletest_dep.path("googlemock/include"), ".", .{});
     gmock_main.installHeadersDirectory(googletest_dep.path("googletest/include"), ".", .{}); // transitive dependency
     b.installArtifact(gmock_main);
